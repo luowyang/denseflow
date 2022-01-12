@@ -411,6 +411,9 @@ void DenseFlow::encode_save(string save_type, bool verbose) {
         lock.unlock();
         // encode & save
         int M = flow_buffer.item_data.size();
+        int biased_start = flow_buffer.base_start + bias;
+        if (verbose)
+            printf("biased_start: %d, base_start: %d, bias: %d", biased_start, bias, flow_buffer.base_start);
         if (save_type == "jpg") {
             vector<vector<uchar>> output_x, output_y;
             Mat planes[2];
@@ -423,8 +426,8 @@ void DenseFlow::encode_save(string save_type, bool verbose) {
                 output_x.push_back(str_x);
                 output_y.push_back(str_y);
             }
-            writeFlowImages(output_x, (flow_buffer.output_dir / "flow_x").c_str(), step, flow_buffer.base_start);
-            writeFlowImages(output_y, (flow_buffer.output_dir / "flow_y").c_str(), step, flow_buffer.base_start);
+            writeFlowImages(output_x, (flow_buffer.output_dir / "flow_x").c_str(), step, biased_start);
+            writeFlowImages(output_y, (flow_buffer.output_dir / "flow_y").c_str(), step, biased_start);
         } else if (save_type == "h5") {
 #if (USE_HDF5)
             vector<Mat> output_h5_x, output_h5_y;
@@ -436,8 +439,8 @@ void DenseFlow::encode_save(string save_type, bool verbose) {
                 output_h5_x.push_back(flow_x);
                 output_h5_y.push_back(flow_y);
             }
-            writeHDF5(output_h5_x, flow_buffer.output_dir.c_str(), "flow_x", step, flow_buffer.base_start);
-            writeHDF5(output_h5_y, flow_buffer.output_dir.c_str(), "flow_y", step, flow_buffer.base_start);
+            writeHDF5(output_h5_x, flow_buffer.output_dir.c_str(), "flow_x", step, biased_start);
+            writeHDF5(output_h5_y, flow_buffer.output_dir.c_str(), "flow_y", step, biased_start);
 #endif
         } else if (save_type == "png") {
             vector<vector<uchar>> output;
@@ -450,7 +453,7 @@ void DenseFlow::encode_save(string save_type, bool verbose) {
                 encodeFlowMapPng(flow_x, flow_y, str);
                 output.push_back(str);
             }
-            writeFlowImagesPng(output, (flow_buffer.output_dir / "flow").c_str(), step, flow_buffer.base_start);
+            writeFlowImagesPng(output, (flow_buffer.output_dir / "flow").c_str(), step, biased_start);
         }
         // mark done for the last batch of the video
         if (is_record && flow_buffer.last_buffer) {
@@ -466,7 +469,8 @@ void DenseFlow::encode_save(string save_type, bool verbose) {
             }
             path donefile = donedir / flow_buffer.output_dir.stem().string();
             createFile(donefile);
-            cout << "done video " << title << endl;
+            if (verbose)
+                cout << "done video " << title << endl;
         }
 
         if (ready_to_exit3)
@@ -478,10 +482,10 @@ void DenseFlow::encode_save(string save_type, bool verbose) {
 
 void calcDenseFlowVideoGPU(vector<path> video_paths, vector<path> output_dirs, string algorithm, int step, int bound,
                            int new_width, int new_height, int new_short, bool has_class, bool use_frames,
-                           string save_type, bool is_record, bool verbose) {
+                           string save_type, bool is_record, bool verbose, int bias) {
     setDevice(0);
     DenseFlow flow_video_gpu(video_paths, output_dirs, algorithm, step, bound, new_width, new_height, new_short,
-                             has_class, is_record, save_type);
+                             has_class, is_record, save_type, bias);
     double start_t = CurrentSeconds();
     if (step == 0) {
         flow_video_gpu.extract_frames_only(use_frames, verbose);
@@ -491,7 +495,8 @@ void calcDenseFlowVideoGPU(vector<path> video_paths, vector<path> output_dirs, s
     double end_t = CurrentSeconds();
     unsigned long N = flow_video_gpu.get_processed_total_frames();
     unsigned long F = flow_video_gpu.get_processed_total_flows();
-    cout << video_paths.size() << " videos (" << N << " frames, " << F << " " << algorithm
-         << " flows) processed, using " << end_t - start_t << "s, decoding speed " << N / (end_t - start_t)
-         << "fps, flow speed " << F / (end_t - start_t) << "fps" << endl;
+    if (verbose)
+        cout << video_paths.size() << " videos (" << N << " frames, " << F << " " << algorithm
+            << " flows) processed, using " << end_t - start_t << "s, decoding speed " << N / (end_t - start_t)
+            << "fps, flow speed " << F / (end_t - start_t) << "fps" << endl;
 }

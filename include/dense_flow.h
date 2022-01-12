@@ -5,7 +5,7 @@
 
 void calcDenseFlowVideoGPU(vector<path> video_paths, vector<path> output_dirs, string algorithm, int step, int bound,
                            int new_width, int new_height, int new_short, bool has_class, bool use_frames,
-                           string save_type, bool is_record, bool verbose);
+                           string save_type, bool is_record, bool verbose, int bias);
 
 class FlowBuffer {
   public:
@@ -31,6 +31,7 @@ class DenseFlow {
     bool has_class;
     bool is_record;
     Stream stream;
+    int bias;
 
     mutex frames_gray_mtx, flows_mtx;
     condition_variable cond_frames_gray_produce, cond_frames_gray_consume;
@@ -86,10 +87,10 @@ class DenseFlow {
     unsigned long get_processed_total_flows() { return total_flows; }
 
     DenseFlow(vector<path> video_paths, vector<path> output_dirs, string algorithm, int step, int bound, int new_width,
-              int new_height, int new_short, bool has_class, bool is_record, string save_type)
+              int new_height, int new_short, bool has_class, bool is_record, string save_type, int bias)
         : video_paths(video_paths), output_dirs(output_dirs), algorithm(algorithm), step(step), bound(bound),
           new_width(new_width), new_height(new_height), new_short(new_short), has_class(has_class),
-          is_record(is_record), save_type(save_type) {
+          is_record(is_record), save_type(save_type), bias(bias) {
         if (!check_param())
             throw std::runtime_error("check init param error.");
         batch_maxsize = 512;
@@ -97,6 +98,8 @@ class DenseFlow {
         ready_to_exit1 = ready_to_exit2 = ready_to_exit3 = false;
         total_frames = 0;
         total_flows = 0;
+        if (bias < 0)
+          this->bias = step;
     }
 };
 

@@ -137,6 +137,8 @@ Usage: denseflow [params] input
                 save format type (png/h5/jpg)
         -v, --verbose
                 verbose
+        --bias
+                bias of input flow images, if bias < 0 then bias=step, otherwise bias is explicitly set, defaults to 0
 
         input
                 filename of video or folder of frames or a list.txt of those
